@@ -1,0 +1,35 @@
+trigger:
+  branches:
+    include:
+      - main # Trigger on changes to the main branch
+
+pool:
+  name: "" # The name of your self-hosted agent pool
+
+variables:
+  azureSubscription: "" # Your Azure service connection ID
+  storageAccountA: "mystorageaccountname22" # Storage Account A name
+  storageAccountB: "mystorageaccountname23" # Storage Account B name
+  containerNameA: "containerA" # Container in Storage Account A
+  containerNameB: "containerB" # Container in Storage Account B
+
+jobs:
+  - job: CopyBlobs
+    displayName: "Copy Blobs from Storage Account A to B"
+    pool:
+      name: ""
+
+    steps:
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(azureSubscription)
+          scriptType: "bash"
+          scriptLocation: "inlineScript"
+          inlineScript: |
+            # Install Azure Storage Blob CLI
+            pip install azure-storage-blob
+
+            # Copy blobs from Storage Account A to B using Python script
+            python copy_blobs.py
+        displayName: "Copy Blobs from Storage Account A to B"
+        
