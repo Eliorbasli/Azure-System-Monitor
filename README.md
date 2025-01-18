@@ -32,4 +32,4 @@ The goal is to display key metrics from the server and storage accounts on an Az
 
 You now have a simple **System Monitoring Dashboard** in Azure to track the health of your server and storage accounts.
 
-![Dashboard Screenshot](dashboard.png)
+![Dashboard Screenshot](dashboard2.png)
