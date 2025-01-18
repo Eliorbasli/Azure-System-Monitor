@@ -1,0 +1,69 @@
+trigger:
+  branches:
+    include:
+      - main  # Trigger on changes to the main branch
+
+pool:
+  name: 'Agent-Pool'  # The name of your self-hosted agent pool
+
+variables:
+  azureSubscription: ''  # Your Azure service connection ID
+  resourceGroupName: ''  # Your Azure resource group name
+  storageTemplateFile: 'storage-template.json'  # Path to the ARM template for storage accounts
+  storageAccountName: ''  # Example storage account name, update this dynamically if needed
+  location: 'eastus'  # Location for the storage account
+  skuName: 'Standard_LRS'  # SKU for the storage account
+  kind: 'StorageV2'  # Kind of storage account
+  pythonScriptPath: 'copy_blobs.py'  # Path to your Python script
+  AZURE_CLIENT_ID: $(azureClientId)  # Your service principal client ID
+  AZURE_CLIENT_SECRET: $(azureClientSecret)  # Your service principal client secret
+  AZURE_TENANT_ID: $(azureTenantId)  # Your Azure tenant ID
+
+jobs:
+- job: DeployResources
+  displayName: 'Deploy Resources'
+  pool:
+    name: 'Agent-Pool'
+
+  steps:
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(azureSubscription)  # Use the Azure service connection ID from variables
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        # Login to Azure using the service principal credentials
+        az login --service-principal --username $(AZURE_CLIENT_ID) --password $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+        
+        # Create Resource Group
+        az group create --name $(resourceGroupName) --location $(location)
+        
+        # Create Storage Account using ARM template
+        az deployment group create \
+          --resource-group $(resourceGroupName) \
+          --template-file $(storageTemplateFile) \
+          --parameters storageAccountName=$(storageAccountName) location=$(location) skuName=$(skuName) kind=$(kind)
+    displayName: 'Deploy Storage Account using ARM Template'
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'  # or another stable version like 3.9
+    displayName: 'Set up Python'
+
+  - script: |
+      python3 --version  # Ensure the installed Python version is correct
+      python3 -m pip install --upgrade pip  # Upgrade pip
+      python3 -m pip install -r requirements.txt  # Install dependencies
+    displayName: 'Install Python Dependencies'
+
+  - script: |
+      # Set the STORAGE_ACCOUNT_A_CONNECTION_STRING environment variable
+      az account set --subscription $(azureSubscription)
+
+      export STORAGE_ACCOUNT_A_CONNECTION_STRING=$(az storage account show-connection-string --name $(storageAccountName) --resource-group $(resourceGroupName) --query connectionString --output tsv)
+      
+      echo "Connection String: $STORAGE_ACCOUNT_A_CONNECTION_STRING"
+      
+      # Run the copy_blobs.py script
+      python3 $(pythonScriptPath)
+    displayName: 'Run Blob Copy Script'
